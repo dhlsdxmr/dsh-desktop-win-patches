@@ -1,0 +1,18 @@
+TRIGGER '1 个后台任务运行中' rect=712,8 188x36 class=QsffPG_trigger offscreen=False
+  pattern OK: ExpandCollapsePattern
+InvalidOperation: evidence\uia-probe4.ps1:27
+Line |
+  27 |  … rentPattern([System.Windows.Automation.LegacyIAccessiblePattern]::Pat …
+     |                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     | 找不到类型 [System.Windows.Automation.LegacyIAccessiblePattern]。
+
+  pattern OK: ScrollItemPattern
+HITTEST at 806,26 -> ControlType.Button name='1 个后台任务运行中' class=QsffPG_trigger
+before elements: 247 total=559
+after elements: 247 total=559
+--- appeared ---
+  + ControlType.Text|00:54:48
+--- disappeared ---
+  - ControlType.Text|00:54:49
+TRIGGER-NOW '1 个后台任务运行中' rect=712,8 188x36
+  expand state: Collapsed

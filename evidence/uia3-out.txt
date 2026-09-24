@@ -1,0 +1,11 @@
+TRIGGER: '1 个后台任务运行中' type=ControlType.Button rect=712,8 188x36 offscreen=False
+NO InvokePattern -> mouse click
+MethodInvocationException: evidence\uia-probe3.ps1:72
+Line |
+  72 |    $exp = $trig2.GetCurrentPropertyValue([System.Windows.Automation.Au …
+     |    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     | 调用“GetCurrentPropertyValue”并传入“1”个参数时发生异常：“Value cannot be null. (Parameter 'property')”
+
+TRIGGER-AFTER: name='1 个后台任务运行中'
+  ExpandCollapse state = Collapsed
+new job elements after click: 11

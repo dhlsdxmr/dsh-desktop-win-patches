@@ -1,0 +1,8 @@
+trigger before: '1 个后台任务运行中' state=Expanded
+menu before : MENU name='后台任务' rect=712,50 421x50 offscreen=False
+SendInput click at 806,26
+trigger after click 1: '1 个后台任务运行中' state=Expanded
+menu after click 1 : MENU name='后台任务' rect=712,50 421x50 offscreen=False
+trigger after click 2: '1 个后台任务运行中' state=Expanded
+menu after click 2 : MENU name='后台任务' rect=712,50 421x50 offscreen=False
+menu after click 3 : MENU name='后台任务' rect=712,50 421x50 offscreen=False

@@ -1,0 +1,17 @@
+<!doctype html><meta charset="utf-8"><title>sel</title>
+<style id="t"></style>
+<body class="dsh-desktop-windows-titlebar-layout">
+<div id="header" data-slot="conversation.session.header">
+  <header>
+    <div class="wSkVaW_titleRow">
+      <div class="wSkVaW_headerActions"><div class="QsffPG_root"><button class="QsffPG_trigger">x</button></div></div>
+      <div class="wSkVaW_headerUtilities"></div><div class="wSkVaW_headerCorner"></div>
+    </div>
+    <div class="wSkVaW_tabs"></div>
+  </header>
+</div>
+<script>
+const sel = 'body.dsh-desktop-windows-titlebar-layout [data-slot="conversation.session.header"] > header [class*="headerActions"]';
+const el = document.querySelector(sel);
+document.title = 'MATCH=' + (el ? el.className : 'NONE');
+</script>

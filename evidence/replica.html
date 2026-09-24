@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><title>jobs dropdown replica</title>
+<style>
+  /* ===== design tokens (values only matter for geometry; palette approximated) ===== */
+  :root{
+    --dsw-alias-bg-base:#fff; --dsw-alias-bg-layer-1:#fff; --dsw-alias-bg-layer-2:#f7f7f8;
+    --dsw-alias-border-l1:#e6e6e8; --dsw-alias-border-l2:#e0e0e3; --dsw-alias-border-l3:#dcdce0;
+    --dsw-alias-border-l4:#d0d0d5; --dsw-alias-label-primary:#0f1115; --dsw-alias-label-secondary:#61666b;
+    --dsw-alias-label-tertiary:#81858c; --dsw-alias-label-caption:#9a9ea4; --dsw-alias-label-dimmed:#b0b4b9;
+    --dsw-specific-menu:#ffffff; --dsw-specific-sidebar-fill:#f5f5f6;
+    --dsw-alias-fill-l2:#f0f0f2; --dsw-alias-interactive-bg-hover:rgb(0 0 0 / 5%);
+    --dsw-elevation-prominent:0 8px 24px rgb(0 0 0 / 16%); --dsw-elevation-stroke-color:var(--dsw-alias-border-l1);
+    --dsw-font-mono:ui-monospace,Consolas,monospace; --dsw-font-family:system-ui,"Microsoft YaHei",sans-serif;
+    --dsh-content-font-delta:0px; --dsh-conversation-column-width:600px;
+  }
+  html,body{margin:0;height:100%}
+  body{font-family:var(--dsw-font-family);background:var(--dsw-alias-bg-base)}
+
+  /* ===== layout frame: .pI_x6G_frame / sidebarCol / centerCol (ui-layout) ===== */
+  .frame{background:var(--dsw-alias-bg-base);height:100%;grid-template-columns:254px minmax(0,1fr);grid-template-rows:100%;display:grid;position:relative;overflow:hidden}
+  .sidebarCol{background:var(--dsw-specific-sidebar-fill);border-right:.5px solid var(--dsw-alias-border-l3);min-width:0;overflow:hidden}
+  .centerCol{flex-direction:column;min-width:0;display:flex;overflow:hidden}
+  .sidebar-inner{padding:20px 12px;color:var(--dsw-alias-label-secondary);font-size:13px}
+
+  /* ===== conversation root (ui-conversation ConversationRoot), actual shipped rules ===== */
+  .wSkVaW_root{background:var(--dsw-alias-bg-base);--dsh-chat-content-width:var(--dsh-chat-user-width,clamp(680px, calc(var(--dsh-conversation-column-width,0px) * .64), 920px));--dsh-composer-card-max-width:calc(var(--dsh-chat-content-width) + 32px);--dsh-composer-side-clearance:16px;--dsh-composer-dock-inset:8px;flex-direction:column;min-width:0;height:100%;display:flex;position:relative}
+  .wSkVaW_header{box-sizing:border-box;border-bottom:.5px solid var(--dsw-alias-border-l3);flex:none;min-height:76px;padding:10px 28px 0 20px}
+  .wSkVaW_headerHidden{display:none}
+  .wSkVaW_titleRow{align-items:center;gap:0;min-height:30px;display:flex}
+  .wSkVaW_titleCluster{flex:1;align-items:center;gap:10px;min-width:0;display:flex}
+  .wSkVaW_crumbs{white-space:nowrap;align-items:center;gap:4px;min-width:0;display:flex;overflow:hidden}
+  .wSkVaW_crumbSeg{align-items:center;gap:4px;min-width:0;display:inline-flex}
+  .wSkVaW_crumbSep{color:var(--dsw-alias-label-caption);font-size:14px;line-height:20px}
+  .wSkVaW_crumb{max-width:220px;color:var(--dsw-alias-label-tertiary);text-overflow:ellipsis;white-space:nowrap;cursor:pointer;background:0 0;border:none;border-radius:12px;padding:4px 8px;font-size:14px;line-height:20px;overflow:hidden}
+  .wSkVaW_crumbCurrent{color:var(--dsw-alias-label-primary);cursor:default;font-weight:500}
+  .wSkVaW_headerActions{flex:none;align-items:center;gap:8px;display:flex}
+  .wSkVaW_headerUtilities{flex:none;align-items:center;gap:8px;margin-left:20px;display:flex}
+  .wSkVaW_headerUtilities:empty{display:none}
+  .wSkVaW_headerCorner{flex:none;align-items:center;margin-left:8px;margin-right:-16px;display:flex}
+  .wSkVaW_headerCorner:empty{display:none}
+  .wSkVaW_tabs{z-index:1;gap:36px;margin-top:10px;padding-left:8px;display:flex;position:relative}
+  .wSkVaW_tab{color:var(--dsw-alias-label-tertiary);cursor:pointer;background:0 0;border:none;padding:0 0 9px;font-size:13px;font-weight:500;line-height:16px;position:relative}
+  .wSkVaW_body{flex-direction:column;flex:1;min-height:0;display:flex;position:relative}
+
+  /* ===== chat scroll + column (ui-chat): the region that renders below the header ===== */
+  .EvIC1a_root{flex-direction:column;flex:auto;min-height:0;display:flex;position:relative}
+  .EvIC1a_scroll{min-height:0;padding:16px calc(var(--dsh-composer-side-clearance) + 16px);flex:auto;overflow-y:auto;container-type:inline-size}
+  .EvIC1a_column{max-width:var(--dsh-chat-content-width);flex-direction:column;width:100%;margin:0 auto;display:flex}
+  .EvIC1a_body{background:var(--dsw-alias-bg-base);color:var(--dsw-alias-label-primary);font-size:14px;line-height:24px}
+  .EvIC1a_body p{margin:0 0 12px}
+
+  /* ===== composer dock approximation (bottom of the conversation column) ===== */
+  .composer{border-top:.5px solid var(--dsw-alias-border-l3);background:var(--dsw-alias-bg-base);padding:12px 16px;color:var(--dsw-alias-label-tertiary);font-size:13px}
+
+  /* ===== the plugin under test: @deepseek-ai/dsh-client-ui-jobs JobListAction.module.css (verbatim) ===== */
+  .QsffPG_root{position:relative}
+  .QsffPG_trigger{min-height:28px;color:var(--dsw-alias-label-tertiary);cursor:pointer;background:0 0;border:0;border-radius:6px;align-items:center;gap:3px;padding:3px 2px;font-size:12px;line-height:18px;display:inline-flex}
+  .QsffPG_trigger:hover,.QsffPG_trigger:focus-visible{color:var(--dsw-alias-label-secondary)}
+  .QsffPG_trigger svg{transition:transform .12s}
+  .QsffPG_triggerOpen{transform:rotate(180deg)}
+  .QsffPG_triggerDot{flex:none}
+  .QsffPG_count{margin:0 5px}
+  .QsffPG_menu{z-index:100;box-sizing:border-box;background:var(--dsw-specific-menu);--dsh-scrollbar-thumb:var(--dsw-alias-scrollbar-bg-l2);--dsh-scrollbar-thumb-hover:var(--dsw-alias-scrollbar-hover-l2);--dsw-elevation-stroke-color:var(--dsw-alias-border-l1);width:336px;max-width:min(400px,100vw - 32px);max-height:min(420px,100vh - 140px);box-shadow:var(--dsw-elevation-prominent);border:0;border-radius:20px;flex-direction:column;gap:1px;margin:0;padding:4px;list-style:none;display:flex;position:absolute;top:calc(100% + 5px);left:0;overflow:auto}
+  .QsffPG_row{box-sizing:border-box;width:100%;min-height:32px;color:var(--dsw-alias-label-primary);border-radius:8px;align-items:center;gap:8px;padding:6px 8px;font-size:13px;line-height:18px;display:flex}
+  .QsffPG_rowSettled{color:var(--dsw-alias-label-tertiary)}
+  .QsffPG_rowDot{flex:none}
+  .QsffPG_kind{background:var(--dsw-alias-fill-l2);color:var(--dsw-alias-label-secondary);border-radius:5px;flex:none;padding:0 6px;font-size:11px;line-height:18px}
+  .QsffPG_label{min-width:0;font-family:var(--dsw-font-mono);white-space:nowrap;text-overflow:ellipsis;flex:1;overflow:hidden}
+  .QsffPG_status,.QsffPG_duration{color:var(--dsw-alias-label-tertiary);flex:none;font-size:11px;line-height:18px}
+  .QsffPG_status{white-space:nowrap;text-overflow:ellipsis;max-width:40%;overflow:hidden}
+  .QsffPG_duration{font-variant-numeric:tabular-nums}
+  .dot{width:8px;height:8px;border-radius:50%;background:#2f7cf6;display:inline-block}
+
+  #report{position:fixed;left:8px;bottom:8px;z-index:9999;background:#111;color:#0f0;font:11px/14px monospace;padding:6px;white-space:pre;max-width:60%}
+</style></head>
+<body>
+<div class="frame">
+  <div class="sidebarCol"><div class="sidebar-inner">侧边栏（≈254px）<br>会话列表…</div></div>
+  <div class="centerCol">
+    <div class="wSkVaW_root" id="convRoot">
+      <div class="wSkVaW_header" id="header">
+        <div class="wSkVaW_titleRow">
+          <div class="wSkVaW_titleCluster">
+            <div class="wSkVaW_crumbs">
+              <span class="wSkVaW_crumbSeg"><span class="wSkVaW_crumb">继续 DSH 工具链安装（阶段 A、</span></span>
+            </div>
+          </div>
+
+          <!-- slot: conversation.session.header.actions -->
+          <div class="wSkVaW_headerActions">
+            <!-- plugin: ui-permission-presets (标准模式) -->
+            <button class="qs-mode" style="background:0 0;border:0;color:var(--dsw-alias-label-tertiary);font-size:12px">标准模式</button>
+            <!-- plugin: @deepseek-ai/dsh-client-ui-jobs -->
+            <div class="QsffPG_root" id="jobRoot">
+              <button type="button" class="QsffPG_trigger" id="jobTrigger" aria-expanded="false" aria-label="2 个后台任务运行中">
+                <span class="dot QsffPG_triggerDot"></span>
+                <span class="QsffPG_count">2 个后台任务</span>
+                <svg width="14" height="14" viewBox="0 0 14 14" id="chev"><path d="M3 5.5 7 9.5 11 5.5" stroke="currentColor" fill="none"/></svg>
+              </button>
+            </div>
+          </div>
+
+          <div class="wSkVaW_headerUtilities"></div>
+          <div class="wSkVaW_headerCorner"></div>
+        </div>
+        <div class="wSkVaW_tabs"><button class="wSkVaW_tab">对话</button><button class="wSkVaW_tab">轨迹</button></div>
+      </div>
+
+      <div class="wSkVaW_body">
+        <div class="EvIC1a_root">
+          <div class="EvIC1a_scroll">
+            <div class="EvIC1a_column EvIC1a_body">
+              <p>用户：继续 DSH 工具链安装（阶段 A、B 阶段)…</p>
+              <p>助手：正在执行后台任务，等待两个后台任务完成。</p>
+              <p>消息流继续向下填充，占据头部下面的整个区域。</p>
+              <p>消息流继续向下填充，占据头部下面的整个区域。</p>
+              <p>消息流继续向下填充，占据头部下面的整个区域。</p>
+              <p>消息流继续向下填充，占据头部下面的整个区域。</p>
+              <p>消息流继续向下填充，占据头部下面的整个区域。</p>
+              <p>消息流继续向下填充，占据头部下面的整个区域。</p>
+            </div>
+          </div>
+          <div class="composer">输入框 / 发送按钮区</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<ul class="QsffPG_menu" id="menu" style="display:none" aria-label="后台任务">
+  <li class="QsffPG_row"><span class="dot QsffPG_rowDot"></span><span class="QsffPG_kind">pwsh</span><span class="QsffPG_label">speedtest-B.ps1</span><span class="QsffPG_status">运行中</span><span class="QsffPG_duration">12秒</span></li>
+  <li class="QsffPG_row"><span class="dot QsffPG_rowDot"></span><span class="QsffPG_kind">pwsh</span><span class="QsffPG_label">probe-B3.ps1</span><span class="QsffPG_status">运行中</span><span class="QsffPG_duration">8秒</span></li>
+</ul>
+
+<pre id="report">probing…</pre>
+<script>
+(function () {
+  const trigger = document.getElementById('jobTrigger');
+  const root = document.getElementById('jobRoot');
+  const menu = document.getElementById('menu');
+  // Mirror the plugin's React behavior: the <ul> is a child of .QsffPG_root, rendered on open.
+  root.appendChild(menu);
+  let lines = [];
+  const log = (s) => lines.push(s);
+
+  function probe(tag) {
+    const r = menu.getBoundingClientRect();
+    const tr = trigger.getBoundingClientRect();
+    log(tag + ' trigger=(' + [tr.left, tr.top, tr.right, tr.bottom].map(Math.round) + ')');
+    log(tag + ' menu=(' + [r.left, r.top, r.right, r.bottom].map(Math.round) + ') w=' + Math.round(r.width) + ' h=' + Math.round(r.height));
+    const cx = Math.round(r.left + r.width / 2), cy = Math.round(r.top + 20);
+    const top = document.elementFromPoint(cx, cy);
+    log(tag + ' elementFromPoint(' + cx + ',' + cy + ') = ' + (top ? top.tagName + '.' + (top.className || '') : 'null'));
+    const first = menu.firstElementChild.getBoundingClientRect();
+    const fy = Math.round(first.top + first.height / 2);
+    const fEl = document.elementFromPoint(Math.round(first.left + 40), fy);
+    log(tag + ' first row hitTest = ' + (fEl ? fEl.tagName + '.' + (fEl.className || '') : 'null'));
+    log(tag + ' menu position=' + getComputedStyle(menu).position + ' zIndex=' + getComputedStyle(menu).zIndex);
+    // walk ancestors: any clipping / stacking context?
+    let el = menu.parentElement, depth = 0, notes = [];
+    while (el && depth < 12) {
+      const cs = getComputedStyle(el);
+      notes.push('^' + depth + ' ' + el.tagName + '.' + (el.className || '').toString().split(' ')[0] +
+        ' {overflow:' + cs.overflow + ', position:' + cs.position + ', zIndex:' + cs.zIndex + ', transform:' + cs.transform +
+        ', filter:' + cs.filter + ', isolation:' + cs.isolation + ', contain:' + cs.contain + ', willChange:' + cs.willChange + '}');
+      el = el.parentElement; depth++;
+    }
+    lines = lines.concat(notes);
+  }
+
+  probe('BEFORE-OPEN(display:none)');
+  menu.style.display = 'flex';
+  trigger.setAttribute('aria-expanded', 'true');
+  probe('AFTER-OPEN');
+
+  // does the menu stay put when the chat area is scrolled?
+  document.querySelector('.EvIC1a_scroll').scrollTop = 60;
+  probe('AFTER-SCROLL');
+  document.getElementById('report').textContent = lines.join('\n');
+  document.title = 'DONE';
+})();
+</script>
+</body></html>

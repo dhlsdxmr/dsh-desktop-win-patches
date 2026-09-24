@@ -1,0 +1,34 @@
+TRIGGER '1 个后台任务运行中' rect=712,8 188x36
+  state before = Collapsed
+EXPAND()
+  trigger now '1 个后台任务运行中' rect=712,8 state after = Expanded
+--- job-list-ish elements (rows carry kind/status/duration) ---
+  ControlType.Document name='后台任务下拉按钮点击无效 — DeepSeek Harness' class= rect=0,0 1920x1030 offscreen=False
+  ControlType.TreeItem name='进行中 后台任务下拉按钮点击无效 5分钟' class=YDXeBa_sessionRow YDXeBa_selected rect=15,247 320x41 offscreen=False
+  ControlType.TreeItem name='继续 DSH 工具链安装（阶段 A、 11分钟' class=YDXeBa_sessionRow rect=15,290 320x40 offscreen=False
+  ControlType.TreeItem name='DSH工具链B阶段安装指导 29分钟' class=YDXeBa_sessionRow rect=15,332 320x41 offscreen=False
+  ControlType.Button name='后台任务下拉按钮点击无效' class=wSkVaW_crumb wSkVaW_crumbCurrent rect=375,8 230x36 offscreen=False
+  ControlType.Button name='1 个后台任务运行中' class=QsffPG_trigger rect=712,8 188x36 offscreen=False
+  ControlType.Image name='' class=QsffPG_triggerOpen rect=879,17 19x18 offscreen=False
+  ControlType.List name='后台任务' class=QsffPG_menu rect=712,50 421x50 offscreen=False
+  ControlType.ListItem name='pwshWrite-Output "probe job started"; 1..40 | ForEach-Object { Start-Sleep -Seconds 3; Write-Output ("tick " + $_) }; Write-Output "probe job done"运行中1分23秒' class=QsffPG_row rect=717,55 411x40 offscreen=False
+  ControlType.Text name='运行中' class= rect=1011,65 42x19 offscreen=False
+  ControlType.Group name='' class=QsffPG_duration rect=1062,63 56x24 offscreen=False
+  ControlType.Text name='1分23秒' class= rect=1062,65 56x19 offscreen=False
+  ControlType.Text name='这里显示两个后台任务在执行，但这个下拉的标，点了没用，是bug？' class= rect=959,-7108 657x29 offscreen=True
+  ControlType.Button name='思考 I see the dropdown was showing 2 background tasks, but looking at the current job list it appears empty. Let me search the app for where "后台任务" is being rendered.' class=_row_luwio_16 lcKema_row rect=622,-6677 1014x35 offscreen=True
+  ControlType.Button name='Grep 后台任务' class=_row_luwio_16 o3BgMG_row rect=622,-6623 1014x35 offscreen=True
+  ControlType.Button name='思考 Need to test the dropdown menu live through the browser to confirm whether the click handler is working, and investigate whether the "2 个后台任务" display is showing a stale count due to the button re-rendering with a new `aria-label` after the menu opens, which could cause a CSS transform to rotate the chevron.My job list shows zero jobs, but that's measured in a later turn, so the two background tasks from an earlier turn might have completed by now, or they could be running in a different session. The snapshot might be per-session, so I need to check the actual session state.' class=_row_luwio_16 lcKema_row rect=622,-5655 1014x34 offscreen=True
+  ControlType.Button name='思考 用户用中文问这个后台任务的下拉菜单是不是有 bug，因为点击没有反应。我需要先验证这个问题，然后再给出分析。我在检查代码路径，看来 JobListAction 的 trigger 设置了开/关状态切换。' class=_row_luwio_16 lcKema_row rect=622,-5333 1014x35 offscreen=True
+  ControlType.Button name='思考 We need to test with UIA since the desktop shell loads client plugins from node_modules through the harness webserver; write a PowerShell script using UI Automation to locate the DSH Desktop window, find a button with "后台任务" in its name, click it, and check for a list element containing "job" in its identifier.' class=_row_luwio_16 lcKema_row rect=622,-1087 1014x35 offscreen=True
+  ControlType.Button name='思考 We need to identify which of the two windows belongs to DSH, noting that the first has a pid of 3796 with dimensions 1938x1048, likely the maximized desktop app window, and the second is the QQ window with pid 19220; query the DSH window by its process ID 3796 and explore its UIA tree to find the background task button and menu, being careful with UIA queries against Chromium's accessibility tree since it may need a nudge.Looking at the process list, 3796 is the main Electron process with the window, so I'll grab that window and search for elements containing "后台任务", then print out all the buttons I find.' class=_row_luwio_16 lcKema_row rect=622,-710 1014x34 offscreen=True
+  ControlType.Button name='思考 We need to note that the UIA accessibility tree is properly exposed now, revealing the conversation with all rendered buttons and status text; the "运行中" status indicator for the active background job confirms its presence, and the job list pill in the header shows "2 个后台任务", verifying the count is accurate, with the conversation header not in the captured region because it's scrolled out of view.The DOM shows tool rows with negative Y coordinates, meaning the content extends off-screen. The key discovery is that the screenshot attempt failed due to missing System.Drawing reference in PowerShell 7, not an actual rendering issue.' class=_row_luwio_16 lcKema_row rect=622,-280 1014x34 offscreen=True
+  ControlType.Text name='运行中' class= rect=622,667 61x28 offscreen=False
+matches: 21
+--- hit test under the trigger (where a bottom-anchored menu would be) ---
+  y=50 -> ControlType.Group name='' class=wSkVaW_header
+  y=70 -> ControlType.Tab name='' class=wSkVaW_tabs
+  y=90 -> ControlType.Group name='' class=wSkVaW_header
+  y=120 -> ControlType.Button name='Pwsh Capture full UIA probe output to file' class=_row_luwio_16 o3BgMG_row
+  y=160 -> ControlType.Button name='思考 We need to fix the bug where functions return both the Write-Output rows and the $rows array, causing the snapshot output to vanish via the pipeline; however, the output shows `new job elements after click: 11`, providing the count, and the trigger is at (712,8) with size 188x36; investigate why almost nothing is being returned when selecting the first 40 lines.Now I'm looking at the ExpandCollapsePattern — it reported "Collapsed" after the click, which could mean my mouse click didn't actually register a toggle, or the pattern isn't being reliably reported. The real issue is that UIA events fire asynchronously on the provider side, so querying the state right after the click might give stale information. Let me step back and think about what I'm actually trying to figure out here.' class=_row_luwio_16 lcKema_row
+  y=200 -> ControlType.Group name='' class=
