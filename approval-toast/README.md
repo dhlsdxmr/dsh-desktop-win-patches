@@ -98,6 +98,22 @@ powershell -NoProfile -Command "Get-StartApps | Where-Object Name -like '*PowerS
 13 条离线断言（argv 形状、模板、节流、白名单、开关、**必须 delegation**）+ 1 次真实投递。
 最后会打印 `VISUAL CONFIRMATION REQUIRED` —— 因为退出码 0 不等于通知真的显示了。
 
+## 排障：没弹通知时先看哪里
+
+插件通过 cordis 内置 logger 往 `harness.log` 打三类行，**「没弹通知」因此可以一眼定位**：
+
+| 日志里看到 | 含义 |
+|---|---|
+| **完全没有** `loaded:` 行 | 插件**没被加载**（loader 没挂上这一行 / 装完没重启 DSH） |
+| `loaded: enabled=... aumid=...` | 插件**挂载成功**，后面列的是生效配置 |
+| `toast requested: tool=... aumid=...` | 收到了审批请求，正在起 PowerShell |
+| `toast delivered: exit=0 tool=...` | PowerShell 正常退出 → 已交给系统（**仍不等于用户看到了**，见幽灵 AUMID） |
+| `toast delivery FAILED: exit=<n>` / `FAILED to start` | 投递失败：多半是 AppUserModelID 没注册，或 PowerShell 起不来 |
+
+日志位置：`<DSH 数据目录>\logs\harness.log`（本机 `D:\DSH-data\dsh-desktop\logs\harness.log`）。
+
+> 设计取舍：logger 是**防御式**获取的 —— 插件 `inject` 为空，**绝不能**因为拿不到 logger 就让 `apply` 抛错（那会变成插件整个不挂载）。拿不到时静默降级为 no-op，此时回到「无迹可查」，但审批流程始终不受影响。
+
 ## 卸载
 
 ```powershell

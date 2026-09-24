@@ -97,16 +97,45 @@ export function renderTemplate(template, values) {
 }
 
 /**
+ * Best-effort named logger.
+ *
+ * `ctx.logger` is a cordis built-in service, and the desktop bridges harness log
+ * records into `harness.log`. This plugin injects NOTHING on purpose (an unavailable
+ * injected service would stop `apply` from running at all), so the logger is probed
+ * defensively: missing or throwing must degrade to a no-op, never to a failed load.
+ *
+ * WHY THIS EXISTS: without it, "no toast appeared" is indistinguishable from "the
+ * plugin was never mounted" -- neither left a trace anywhere. The load breadcrumb
+ * and the per-delivery outcome below make that distinction readable in one place.
+ * @param ctx - cordis context (may lack the logger service entirely).
+ * @param deps - test seam: a `log` function replaces the probed logger entirely.
+ * @returns `log(level, message)`; drops everything silently when unusable.
+ */
+export function makeLogger(ctx, deps = {}) {
+  if (typeof deps.log === 'function') return deps.log
+  try {
+    const named = ctx?.logger?.('dsh-approval-toast')
+    if (named !== undefined && named !== null) {
+      return (level, message) => {
+        try { named[level]?.(message) } catch { /* logging must never throw */ }
+      }
+    }
+  } catch { /* fall through to the no-op below */ }
+  return () => {}
+}
+
+/**
  * Build the notifier function. Dependencies are injectable so the self-test can
  * assert the exact spawn arguments and the throttling without showing anything.
  * @param config - effective config from {@link resolveConfig}.
- * @param deps - test seams (`spawn`, `script`, `powershell`).
+ * @param deps - test seams (`spawn`, `script`, `powershell`, `log`).
  * @returns `notify(toolName, reason)` -> whether a toast was launched.
  */
 export function createNotifier(config, deps = {}) {
   const run = deps.spawn ?? spawn
   const script = deps.script ?? SCRIPT
   const powershell = deps.powershell ?? powershellPath()
+  const log = typeof deps.log === 'function' ? deps.log : () => {}
   let lastTool
   let lastAt = 0
 
@@ -132,14 +161,25 @@ export function createNotifier(config, deps = {}) {
       '-Body', body,
     ]
     try {
-      // stdio 'ignore': nothing here needs the child's output, and a piped
-      // stdio would be one more thing to go wrong on a constrained host.
+      // stdio 'ignore': nothing here needs the child's output, and a piped stdio
+      // would be one more thing to go wrong on a constrained host. The OUTCOME is
+      // read from the exit event instead, which needs no pipe at all.
       const child = run(powershell, args, { windowsHide: true, stdio: 'ignore' })
-      // An 'error' listener keeps an ENOENT from surfacing as an unhandled event.
-      if (typeof child?.on === 'function') child.on('error', () => {})
+      if (typeof child?.on === 'function') {
+        // A listener also keeps an ENOENT from surfacing as an unhandled event.
+        child.on('error', (error) => {
+          log('warn', `toast delivery FAILED to start: ${error?.message ?? error} (tool=${toolName})`)
+        })
+        child.on('exit', (code, signal) => {
+          if (code === 0) log('info', `toast delivered: exit=0 tool=${toolName}`)
+          else log('warn', `toast delivery FAILED: exit=${code} signal=${signal ?? 'none'} tool=${toolName} -- non-zero means PowerShell could not raise it; check the AppUserModelID is registered, or run assets/toast.ps1 by hand`)
+        })
+      }
       if (typeof child?.unref === 'function') child.unref()
-    } catch {
+      log('info', `toast requested: tool=${toolName} aumid=${config.aumid}`)
+    } catch (error) {
       // A notification failure must never disturb the approval flow.
+      log('warn', `toast spawn threw: ${error?.message ?? error} (tool=${toolName})`)
     }
     return true
   }
@@ -153,7 +193,11 @@ export function createNotifier(config, deps = {}) {
  */
 export function apply(ctx, rawConfig = {}, deps = {}) {
   const config = resolveConfig(rawConfig)
-  const notify = createNotifier(config, deps)
+  const log = makeLogger(ctx, deps)
+  // Load breadcrumb: proves the plugin MOUNTED, and prints the effective config.
+  // Without it a silent plugin and an unloaded plugin look exactly alike.
+  log('info', `loaded: enabled=${config.enabled} aumid=${config.aumid} onlyTools=[${config.onlyTools.join(',')}] cooldownMs=${config.cooldownMs} script=${SCRIPT}`)
+  const notify = createNotifier(config, { ...deps, log })
   ctx.on('approval/request', (request, next) => {
     notify(request?.toolName, request?.reason)
     return next()

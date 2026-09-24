@@ -22,6 +22,7 @@ import {
   SCRIPT,
   apply,
   createNotifier,
+  makeLogger,
   powershellPath,
   renderTemplate,
   resolveConfig,
@@ -34,14 +35,28 @@ function check(label, fn) {
   console.log(`  ok   ${label}`)
 }
 
-/** Record spawn calls instead of launching anything. */
+/** Record spawn calls instead of launching anything, and let a test drive the
+ * child's own events (the notifier reads its delivery outcome from 'exit'/'error'). */
 function fakeSpawn() {
   const calls = []
   const spawn = (command, args, options) => {
-    calls.push({ command, args, options })
-    return { on() {}, unref() {} }
+    const handlers = new Map()
+    const child = {
+      on(event, handler) { handlers.set(event, handler); return child },
+      unref() {},
+      emit(event, ...rest) { const handler = handlers.get(event); if (handler) handler(...rest) },
+    }
+    calls.push({ command, args, options, child })
+    return child
   }
   return { spawn, calls }
+}
+
+/** Collect the lines a notifier would write. */
+function fakeLogger() {
+  const lines = []
+  const log = (level, message) => lines.push(`${level}: ${message}`)
+  return { log, lines }
 }
 
 console.log('--- 1. template rendering ---')
@@ -139,7 +154,62 @@ check('handler tolerates a malformed request', () => {
   assert.equal(wiring.calls.length, beforeMalformed + 1)
 })
 
-console.log(`--- 6. REAL delivery (${passed} offline checks passed) ---`)
+console.log('--- 6. observability: logger probing + delivery outcomes ---')
+check('makeLogger uses ctx.logger when the service exists', () => {
+  const seen = []
+  const log = makeLogger({ logger: (channel) => ({ info: (m) => seen.push(`${channel}|${m}`) }) })
+  log('info', 'hello')
+  assert.deepEqual(seen, ['dsh-approval-toast|hello'])
+})
+check('makeLogger degrades to a no-op when ctx has no logger', () => {
+  const log = makeLogger({})
+  assert.equal(log('info', 'dropped'), undefined)
+})
+check('makeLogger survives a ctx whose logger throws', () => {
+  const log = makeLogger({ logger: () => { throw new Error('no logger service') } })
+  assert.equal(log('info', 'dropped'), undefined)
+})
+check('an injected log seam wins over the probed logger', () => {
+  const seen = []
+  const log = makeLogger({ logger: () => ({ info: () => { throw new Error('must not be used') } }) }, { log: (l, m) => seen.push(m) })
+  log('info', 'seam')
+  assert.deepEqual(seen, ['seam'])
+})
+check('apply logs a load breadcrumb naming the effective config', () => {
+  const seen = fakeLogger()
+  apply({ on: () => {} }, { cooldownMs: 1234 }, { spawn: fakeSpawn().spawn, script: 'S.ps1', powershell: 'PS.exe', log: seen.log })
+  assert.ok(seen.lines.some((l) => l.startsWith('info: loaded:')), seen.lines.join(' | '))
+  assert.ok(seen.lines.some((l) => l.includes('aumid=DeepSeek.Harness.DSH') && l.includes('cooldownMs=1234')))
+})
+check('a zero exit is logged as delivered', () => {
+  const { spawn, calls } = fakeSpawn()
+  const seen = fakeLogger()
+  createNotifier(resolveConfig({}), { spawn, script: 'S.ps1', powershell: 'PS.exe', log: seen.log })('pwsh', 'x')
+  calls[0].child.emit('exit', 0, null)
+  assert.ok(seen.lines.includes('info: toast delivered: exit=0 tool=pwsh'), seen.lines.join(' | '))
+})
+check('a non-zero exit is logged as a DELIVERY FAILURE', () => {
+  const { spawn, calls } = fakeSpawn()
+  const seen = fakeLogger()
+  createNotifier(resolveConfig({}), { spawn, script: 'S.ps1', powershell: 'PS.exe', log: seen.log })('pwsh', 'x')
+  calls[0].child.emit('exit', 1, null)
+  assert.ok(seen.lines.some((l) => l.startsWith('warn: toast delivery FAILED: exit=1')), seen.lines.join(' | '))
+})
+check('a spawn error is logged, not swallowed', () => {
+  const { spawn, calls } = fakeSpawn()
+  const seen = fakeLogger()
+  createNotifier(resolveConfig({}), { spawn, script: 'S.ps1', powershell: 'PS.exe', log: seen.log })('pwsh', 'x')
+  calls[0].child.emit('error', new Error('spawn ENOENT'))
+  assert.ok(seen.lines.some((l) => l.includes('FAILED to start') && l.includes('spawn ENOENT')), seen.lines.join(' | '))
+})
+check('the request is logged before the outcome', () => {
+  const { spawn } = fakeSpawn()
+  const seen = fakeLogger()
+  createNotifier(resolveConfig({}), { spawn, script: 'S.ps1', powershell: 'PS.exe', log: seen.log })('pwsh', 'x')
+  assert.ok(seen.lines[0].startsWith('info: toast requested: tool=pwsh aumid='), seen.lines.join(' | '))
+})
+
+console.log(`--- 7. REAL delivery (${passed} offline checks passed) ---`)
 const real = spawnSync(
   powershellPath(),
   ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', SCRIPT,
