@@ -27,7 +27,7 @@ $preloadRel  = 'resources\app\out\preload\index.cjs'
 $nativeRel   = 'resources\app\node_modules\@deepseek-ai\dsh-native-command\lib\index.js'
 $preloadPath = Join-Path $DshRoot $preloadRel
 $nativePath  = Join-Path $DshRoot $nativeRel
-$fixBlock    = Join-Path $PSScriptRoot 'src\preload-index-fix.js'
+$fixBlock    = Join-Path $PSScriptRoot 'header-title-row-clickable\preload-index-fix.js'
 
 # A node binary is only needed for the node --check verification step.
 $nodeCandidates = @(

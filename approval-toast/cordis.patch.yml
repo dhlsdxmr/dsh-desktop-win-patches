@@ -1,0 +1,14 @@
+# dsh-approval-toast bundle patch: inserts the host row into the profile's
+# plugin roster. Install with `dsh plugin --profile <name> add <path-or-git-url>`;
+# this bundle patch is applied automatically, so do NOT insert this row again in
+# the profile patch (duplicate loader entry ids crash the loader).
+#
+# Configuration belongs in the PROFILE's cordis.patch.yml as an id-targeted
+# `config:` override, e.g.
+#   - id: dsh-approval-toast
+#     config:
+#       enabled: true
+#       aumid: DeepSeek.Harness.DSH
+- insert:
+    - id: dsh-approval-toast
+      name: 'dsh-approval-toast'

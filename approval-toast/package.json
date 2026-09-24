@@ -1,0 +1,18 @@
+{
+  "name": "dsh-approval-toast",
+  "version": "0.1.0",
+  "description": "Windows OS toast when a DSH approval request becomes pending, so the user notices while the DSH window is in the background.",
+  "private": true,
+  "type": "module",
+  "main": "lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./package.json": "./package.json"
+  },
+  "license": "MIT",
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  }
+}
